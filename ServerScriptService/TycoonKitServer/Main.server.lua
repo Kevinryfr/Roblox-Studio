@@ -9,6 +9,8 @@ local RemotesFolder = TycoonKitFolder:WaitForChild("Remotes")
 local RequestPurchaseRemote = RemotesFolder:WaitForChild("RequestPurchase") :: RemoteEvent
 local CollectDropRemote = RemotesFolder:WaitForChild("CollectDrop") :: RemoteEvent
 local DropVisualRemote = RemotesFolder:WaitForChild("DropVisual") :: RemoteEvent
+local PurchaseResultRemote = RemotesFolder:WaitForChild("PurchaseResult") :: RemoteEvent
+local CashUpdatedRemote = RemotesFolder:WaitForChild("CashUpdated") :: RemoteEvent
 
 local GameConfig = require(TycoonKitFolder:WaitForChild("Config"):WaitForChild("GameConfig"))
 local ValidationService = require(script:WaitForChild("Services"):WaitForChild("ValidationService"))
@@ -38,6 +40,10 @@ local function debugPrint(...: any)
 	if GameConfig.Debug.Enabled and GameConfig.Debug.PrintPurchaseFlow then
 		print("[TycoonKit]", ...)
 	end
+end
+
+local function fireCashUpdated(player: Player, cash: number)
+	CashUpdatedRemote:FireClient(player, cash)
 end
 
 local function getOwnedTycoon(player: Player): Instance?
@@ -107,8 +113,9 @@ local function recomputeMoneyMultiplier(player: Player): number
 end
 
 local function buildInitialStateForPlayer(player: Player)
+	local initialCash = GameConfig.Economy.StartingCash
 	playerState[player.UserId] = {
-		cash = GameConfig.Economy.StartingCash,
+		cash = initialCash,
 		purchased = {},
 		tycoon = nil,
 		tagBonus = {},
@@ -116,6 +123,7 @@ local function buildInitialStateForPlayer(player: Player)
 		pendingDrops = {},
 		moneyMultiplier = recomputeMoneyMultiplier(player),
 	}
+	fireCashUpdated(player, initialCash)
 end
 
 local function releaseState(player: Player)
@@ -211,6 +219,7 @@ local function purchaseButton(player: Player, buttonName: string): (boolean, str
 
 	state.purchased[validation.buttonName :: string] = true
 	applyUpgraderBonusIfAny(state, tycoon, validation.buttonName :: string)
+	fireCashUpdated(player, state.cash)
 	debugPrint(player.Name, "purchased", validation.buttonName, "remainingCash", state.cash)
 
 	return true, "Purchased"
@@ -279,6 +288,7 @@ RequestPurchaseRemote.OnServerEvent:Connect(function(player: Player, buttonName:
 	end
 
 	local ok, reason = purchaseButton(player, buttonName)
+	PurchaseResultRemote:FireClient(player, ok, buttonName, reason)
 	if not ok and GameConfig.Debug.Enabled then
 		warn(("[TycoonKit] Purchase failed for %s on button %s: %s")
 			:format(player.Name, buttonName, tostring(reason)))
@@ -305,6 +315,7 @@ CollectDropRemote.OnServerEvent:Connect(function(player: Player, dropId: string)
 	if state.cash > GameConfig.Economy.MaxCash then
 		state.cash = GameConfig.Economy.MaxCash
 	end
+	fireCashUpdated(player, state.cash)
 end)
 
 task.spawn(function()

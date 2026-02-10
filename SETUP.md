@@ -3,11 +3,15 @@
 ## 1) Crea la estructura del sistema
 - `ReplicatedStorage/TycoonKit/Config/GameConfig` (ModuleScript)
 - `ReplicatedStorage/TycoonKit/Remotes/RequestPurchase` (RemoteEvent)
+- `ReplicatedStorage/TycoonKit/Remotes/PurchaseResult` (RemoteEvent)
+- `ReplicatedStorage/TycoonKit/Remotes/CashUpdated` (RemoteEvent)
 - `ReplicatedStorage/TycoonKit/Remotes/DropVisual` (RemoteEvent)
 - `ReplicatedStorage/TycoonKit/Remotes/CollectDrop` (RemoteEvent)
 - `ServerScriptService/TycoonKitServer/Main.server.lua` (Script)
 - `ServerScriptService/TycoonKitServer/Services/ValidationService` (ModuleScript)
 - `StarterPlayer/StarterPlayerScripts/TycoonClient/DropVisual.client.lua` (LocalScript)
+- `StarterPlayer/StarterPlayerScripts/TycoonClient/ButtonInteract.client.lua` (LocalScript)
+- `StarterPlayer/StarterPlayerScripts/TycoonClient/CashHud.client.lua` (LocalScript)
 
 ## 2) Estructura visual recomendada de cada Tycoon
 ```text
@@ -52,6 +56,7 @@ Workspace
 - `Prerequisite` vacío o ausente = sin requisito.
 - El botón desbloquea `Structures/<mismoNombre>`.
 - Si el botón desbloquea un upgrader con el mismo nombre en `Upgraders`, suma `AddAmount` al grupo `TagFilter`.
+- El server responde por `PurchaseResult(ok, buttonName, reason)`.
 
 ## 4) Lógica de drops (actual)
 - Solo droppers comprados generan drops.
@@ -60,6 +65,7 @@ Workspace
 - El servidor crea `dropId` lógico y dispara `DropVisual` al cliente.
 - El cliente debe reclamar con `CollectDrop(dropId)`.
 - El servidor valida `dropId` pendiente y acredita dinero.
+- El server avisa dinero actualizado con `CashUpdated(cash)`.
 
 ## 5) Configuración global (GameConfig)
 Edita IDs en:
@@ -90,7 +96,7 @@ Edita IDs en:
 - Rechaza si falta `AddAmount`
 - Rechaza si falta `TagFilter`
 
-## 7) Script cliente de visual de drops
-- El LocalScript `DropVisual.client.lua` escucha `DropVisual`.
-- Crea animación visual (pooling + tween) desde `Mouth` del dropper hasta el jugador.
-- Al terminar, reclama en servidor con `CollectDrop(dropId)`.
+## 7) Scripts cliente
+- `DropVisual.client.lua`: visual de drops + claim `CollectDrop`.
+- `ButtonInteract.client.lua`: ClickDetector en `Buttons/*/Head` y envía `RequestPurchase(buttonName)`.
+- `CashHud.client.lua`: muestra cash en HUD con `CashUpdated`.
