@@ -7,6 +7,7 @@
 - `ReplicatedStorage/TycoonKit/Remotes/CollectDrop` (RemoteEvent)
 - `ServerScriptService/TycoonKitServer/Main.server.lua` (Script)
 - `ServerScriptService/TycoonKitServer/Services/ValidationService` (ModuleScript)
+- `StarterPlayer/StarterPlayerScripts/TycoonClient/DropVisual.client.lua` (LocalScript)
 
 ## 2) Estructura visual recomendada de cada Tycoon
 ```text
@@ -88,3 +89,8 @@ Edita IDs en:
 - Rechaza si falta `Configuration`
 - Rechaza si falta `AddAmount`
 - Rechaza si falta `TagFilter`
+
+## 7) Script cliente de visual de drops
+- El LocalScript `DropVisual.client.lua` escucha `DropVisual`.
+- Crea animación visual (pooling + tween) desde `Mouth` del dropper hasta el jugador.
+- Al terminar, reclama en servidor con `CollectDrop(dropId)`.
