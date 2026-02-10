@@ -98,5 +98,5 @@ Edita IDs en:
 
 ## 7) Scripts cliente
 - `DropVisual.client.lua`: visual de drops + claim `CollectDrop`.
-- `ButtonInteract.client.lua`: ClickDetector en `Buttons/*/Head` y envía `RequestPurchase(buttonName)`.
-- `CashHud.client.lua`: muestra cash en HUD con `CashUpdated`.
+- `ButtonInteract.client.lua`: ClickDetector en `Buttons/*/Head`, envía `RequestPurchase(buttonName)`, y aplica feedback visual/sonoro en éxito/error.
+- `CashHud.client.lua`: muestra cash en HUD con `CashUpdated` y reproduce sonido de collect cuando el cash sube.
