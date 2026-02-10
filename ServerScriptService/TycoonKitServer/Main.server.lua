@@ -35,6 +35,7 @@ type RuntimeState = {
 	pendingDrops: {[string]: PendingDrop},
 	moneyMultiplier: number,
 	bonusesInitialized: boolean,
+	structuresInitialized: boolean,
 }
 
 local playerState: {[number]: RuntimeState} = {}
@@ -163,6 +164,38 @@ local function applyUpgraderBonusIfAny(state: RuntimeState, tycoon: Instance, pu
 	debugPrint("Applied upgrader bonus", purchasedName, tagFilter, addAmount)
 end
 
+local function applyPurchasedStructuresIfNeeded(player: Player, state: RuntimeState)
+	if state.structuresInitialized then
+		return
+	end
+
+	local tycoon = getOwnedTycoon(player)
+	if not tycoon then
+		return
+	end
+
+	local buttons = tycoon:FindFirstChild("Buttons")
+	local structures = tycoon:FindFirstChild("Structures")
+	if not buttons or not structures then
+		return
+	end
+
+	for purchasedName, bought in state.purchased do
+		if not bought then
+			continue
+		end
+		local buttonModel = buttons:FindFirstChild(purchasedName)
+		if buttonModel and buttonModel:IsA("Model") then
+			local structure = ValidationService.FindStructureForButton(structures, purchasedName)
+			if structure then
+				setStructureUnlocked(structure, true)
+			end
+		end
+	end
+
+	state.structuresInitialized = true
+end
+
 local function ensureBonusesInitialized(player: Player, state: RuntimeState)
 	if state.bonusesInitialized then
 		return
@@ -257,6 +290,7 @@ local function buildInitialStateForPlayer(player: Player)
 		pendingDrops = {},
 		moneyMultiplier = recomputeMoneyMultiplier(player),
 		bonusesInitialized = false,
+		structuresInitialized = false,
 	}
 
 	local loadedData = loadPlayerData(player)
@@ -317,6 +351,7 @@ local function purchaseButton(player: Player, buttonName: string): (boolean, str
 	state.purchased[validation.buttonName :: string] = true
 	applyUpgraderBonusIfAny(state, tycoon, validation.buttonName :: string)
 	state.bonusesInitialized = true
+	state.structuresInitialized = true
 	fireCashUpdated(player, state.cash)
 	debugPrint(player.Name, "purchased", validation.buttonName, "remainingCash", state.cash)
 
@@ -334,6 +369,7 @@ end
 
 local function processDroppersForPlayer(player: Player, state: RuntimeState, nowClock: number)
 	ensureBonusesInitialized(player, state)
+	applyPurchasedStructuresIfNeeded(player, state)
 
 	local tycoon = getOwnedTycoon(player)
 	state.tycoon = tycoon

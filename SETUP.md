@@ -106,5 +106,6 @@ Edita IDs en:
 - Si `GameConfig.Progression.SaveEnabled = true` y `StartFromZeroOnJoin = false`, el server guarda/carga:
   - `cash`
   - lista de compras (`purchased`)
+  - al reconectar re-aplica estructuras compradas y bonuses de upgrader
 - Guardado automático cada `AutosaveInterval` segundos y al salir/cerrar servidor.
 - Si `StartFromZeroOnJoin = true`, ignora datos guardados y empieza desde 0.
