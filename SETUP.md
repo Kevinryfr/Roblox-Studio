@@ -100,3 +100,11 @@ Edita IDs en:
 - `DropVisual.client.lua`: visual de drops + claim `CollectDrop`.
 - `ButtonInteract.client.lua`: ClickDetector en `Buttons/*/Head`, envía `RequestPurchase(buttonName)`, y aplica feedback visual/sonoro en éxito/error.
 - `CashHud.client.lua`: muestra cash en HUD con `CashUpdated` y reproduce sonido de collect cuando el cash sube.
+
+
+## 8) Persistencia (DataStore)
+- Si `GameConfig.Progression.SaveEnabled = true` y `StartFromZeroOnJoin = false`, el server guarda/carga:
+  - `cash`
+  - lista de compras (`purchased`)
+- Guardado automático cada `AutosaveInterval` segundos y al salir/cerrar servidor.
+- Si `StartFromZeroOnJoin = true`, ignora datos guardados y empieza desde 0.

@@ -1,4 +1,5 @@
 --!strict
+local DataStoreService = game:GetService("DataStoreService")
 local HttpService = game:GetService("HttpService")
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
@@ -16,6 +17,7 @@ local GameConfig = require(TycoonKitFolder:WaitForChild("Config"):WaitForChild("
 local ValidationService = require(script:WaitForChild("Services"):WaitForChild("ValidationService"))
 
 local TycoonsFolder = workspace:WaitForChild("Tycoons")
+local PlayerDataStore = DataStoreService:GetDataStore("TycoonKitPlayerData_v1")
 
 local DROP_TICK_RATE = 0.1
 
@@ -32,6 +34,7 @@ type RuntimeState = {
 	nextDropAtByDropper: {[string]: number},
 	pendingDrops: {[string]: PendingDrop},
 	moneyMultiplier: number,
+	bonusesInitialized: boolean,
 }
 
 local playerState: {[number]: RuntimeState} = {}
@@ -112,24 +115,6 @@ local function recomputeMoneyMultiplier(player: Player): number
 	return 1
 end
 
-local function buildInitialStateForPlayer(player: Player)
-	local initialCash = GameConfig.Economy.StartingCash
-	playerState[player.UserId] = {
-		cash = initialCash,
-		purchased = {},
-		tycoon = nil,
-		tagBonus = {},
-		nextDropAtByDropper = {},
-		pendingDrops = {},
-		moneyMultiplier = recomputeMoneyMultiplier(player),
-	}
-	fireCashUpdated(player, initialCash)
-end
-
-local function releaseState(player: Player)
-	playerState[player.UserId] = nil
-end
-
 local function validateGamepassRequirement(player: Player, gamepassId: number?): (boolean, string?)
 	if gamepassId == nil then
 		return true, nil
@@ -178,6 +163,118 @@ local function applyUpgraderBonusIfAny(state: RuntimeState, tycoon: Instance, pu
 	debugPrint("Applied upgrader bonus", purchasedName, tagFilter, addAmount)
 end
 
+local function ensureBonusesInitialized(player: Player, state: RuntimeState)
+	if state.bonusesInitialized then
+		return
+	end
+
+	local tycoon = getOwnedTycoon(player)
+	if not tycoon then
+		return
+	end
+
+	state.tycoon = tycoon
+	state.tagBonus = {}
+	for purchasedName, bought in state.purchased do
+		if bought then
+			applyUpgraderBonusIfAny(state, tycoon, purchasedName)
+		end
+	end
+	state.bonusesInitialized = true
+end
+
+local function serializePurchased(purchasedMap: {[string]: boolean}): {string}
+	local purchasedArray = {}
+	for name, value in purchasedMap do
+		if value then
+			table.insert(purchasedArray, name)
+		end
+	end
+	return purchasedArray
+end
+
+local function deserializePurchased(raw: any): {[string]: boolean}
+	local result: {[string]: boolean} = {}
+	if typeof(raw) ~= "table" then
+		return result
+	end
+	for _, name in raw do
+		if typeof(name) == "string" then
+			result[name] = true
+		end
+	end
+	return result
+end
+
+local function loadPlayerData(player: Player): any
+	if not GameConfig.Progression.SaveEnabled or GameConfig.Progression.StartFromZeroOnJoin then
+		return nil
+	end
+
+	local key = tostring(player.UserId)
+	local ok, data = pcall(function()
+		return PlayerDataStore:GetAsync(key)
+	end)
+	if not ok then
+		warn(("[TycoonKit] Data load failed for %s"):format(player.Name))
+		return nil
+	end
+	return data
+end
+
+local function savePlayerState(player: Player, state: RuntimeState, reason: string)
+	if not GameConfig.Progression.SaveEnabled then
+		return
+	end
+	if GameConfig.Progression.StartFromZeroOnJoin then
+		return
+	end
+
+	local payload = {
+		cash = state.cash,
+		purchased = serializePurchased(state.purchased),
+		timestamp = os.time(),
+		reason = reason,
+	}
+
+	local key = tostring(player.UserId)
+	local ok, err = pcall(function()
+		PlayerDataStore:SetAsync(key, payload)
+	end)
+	if not ok then
+		warn(("[TycoonKit] Data save failed for %s: %s"):format(player.Name, tostring(err)))
+	end
+end
+
+local function buildInitialStateForPlayer(player: Player)
+	local initialCash = GameConfig.Economy.StartingCash
+	local state: RuntimeState = {
+		cash = initialCash,
+		purchased = {},
+		tycoon = nil,
+		tagBonus = {},
+		nextDropAtByDropper = {},
+		pendingDrops = {},
+		moneyMultiplier = recomputeMoneyMultiplier(player),
+		bonusesInitialized = false,
+	}
+
+	local loadedData = loadPlayerData(player)
+	if typeof(loadedData) == "table" then
+		if typeof(loadedData.cash) == "number" then
+			state.cash = math.clamp(loadedData.cash, 0, GameConfig.Economy.MaxCash)
+		end
+		state.purchased = deserializePurchased(loadedData.purchased)
+	end
+
+	playerState[player.UserId] = state
+	fireCashUpdated(player, state.cash)
+end
+
+local function releaseState(player: Player)
+	playerState[player.UserId] = nil
+end
+
 local function purchaseButton(player: Player, buttonName: string): (boolean, string?)
 	local state = playerState[player.UserId]
 	if not state then
@@ -219,6 +316,7 @@ local function purchaseButton(player: Player, buttonName: string): (boolean, str
 
 	state.purchased[validation.buttonName :: string] = true
 	applyUpgraderBonusIfAny(state, tycoon, validation.buttonName :: string)
+	state.bonusesInitialized = true
 	fireCashUpdated(player, state.cash)
 	debugPrint(player.Name, "purchased", validation.buttonName, "remainingCash", state.cash)
 
@@ -235,6 +333,8 @@ local function spawnLogicalDrop(player: Player, state: RuntimeState, dropperName
 end
 
 local function processDroppersForPlayer(player: Player, state: RuntimeState, nowClock: number)
+	ensureBonusesInitialized(player, state)
+
 	local tycoon = getOwnedTycoon(player)
 	state.tycoon = tycoon
 	if not tycoon then
@@ -332,14 +432,41 @@ task.spawn(function()
 	end
 end)
 
+task.spawn(function()
+	local interval = tonumber(GameConfig.Progression.AutosaveInterval) or 60
+	interval = math.max(10, interval)
+	while true do
+		task.wait(interval)
+		for _, player in Players:GetPlayers() do
+			local state = playerState[player.UserId]
+			if state then
+				savePlayerState(player, state, "autosave")
+			end
+		end
+	end
+end)
+
 Players.PlayerAdded:Connect(function(player)
 	buildInitialStateForPlayer(player)
 end)
 
 Players.PlayerRemoving:Connect(function(player)
+	local state = playerState[player.UserId]
+	if state then
+		savePlayerState(player, state, "leaving")
+	end
 	releaseState(player)
 end)
 
 for _, player in Players:GetPlayers() do
 	buildInitialStateForPlayer(player)
 end
+
+game:BindToClose(function()
+	for _, player in Players:GetPlayers() do
+		local state = playerState[player.UserId]
+		if state then
+			savePlayerState(player, state, "bindtoclose")
+		end
+	end
+end)
