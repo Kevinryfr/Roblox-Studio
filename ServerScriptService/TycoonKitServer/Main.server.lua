@@ -14,7 +14,7 @@ local PurchaseResultRemote = RemotesFolder:WaitForChild("PurchaseResult") :: Rem
 local CashUpdatedRemote = RemotesFolder:WaitForChild("CashUpdated") :: RemoteEvent
 
 local GameConfig = require(TycoonKitFolder:WaitForChild("Config"):WaitForChild("GameConfig"))
-local ValidationService = require(script:WaitForChild("Services"):WaitForChild("ValidationService"))
+local ValidationService = require(script.Parent:WaitForChild("Services"):WaitForChild("ValidationService"))
 
 local TycoonsFolder = workspace:WaitForChild("Tycoons")
 local PlayerDataStore = DataStoreService:GetDataStore("TycoonKitPlayerData_v1")

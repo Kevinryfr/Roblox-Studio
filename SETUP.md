@@ -7,7 +7,7 @@
 - `ReplicatedStorage/TycoonKit/Remotes/CashUpdated` (RemoteEvent)
 - `ReplicatedStorage/TycoonKit/Remotes/DropVisual` (RemoteEvent)
 - `ReplicatedStorage/TycoonKit/Remotes/CollectDrop` (RemoteEvent)
-- `ServerScriptService/TycoonKitServer/Main.server.lua` (Script)
+- `ServerScriptService/TycoonKitServer/Main.server.lua` (Script, dentro de la carpeta `TycoonKitServer`)
 - `ServerScriptService/TycoonKitServer/Services/ValidationService` (ModuleScript)
 - `StarterPlayer/StarterPlayerScripts/TycoonClient/DropVisual.client.lua` (LocalScript)
 - `StarterPlayer/StarterPlayerScripts/TycoonClient/ButtonInteract.client.lua` (LocalScript)
