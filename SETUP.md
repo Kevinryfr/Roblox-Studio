@@ -105,7 +105,19 @@ Edita IDs en:
 ## 8) Persistencia (DataStore)
 - Si `GameConfig.Progression.SaveEnabled = true` y `StartFromZeroOnJoin = false`, el server guarda/carga:
   - `cash`
-  - lista de compras (`purchased`)
+  - lista de modelos comprados (`purchasedModels`)
+  - compatibilidad hacia atrás con `purchased` (legacy)
   - al reconectar re-aplica estructuras compradas y bonuses de upgrader
 - Guardado automático cada `AutosaveInterval` segundos y al salir/cerrar servidor.
 - Si `StartFromZeroOnJoin = true`, ignora datos guardados y empieza desde 0.
+
+## 9) Inicialización visual de Tycoon (ocultar / alistar)
+- Al entrar un jugador, el server recorre su tycoon y deja todo en estado inicial:
+  - Oculta todas las estructuras en `Structures/*`.
+  - Oculta botones ya comprados.
+  - Muestra únicamente botones disponibles (sin prerequisite o prerequisite ya comprado).
+- Al comprar un botón:
+  - Oculta el botón comprado.
+  - Desbloquea su estructura homónima en `Structures`.
+  - Recalcula qué botones quedan disponibles por prerequisite.
+- La visibilidad y colisión de las partes del botón/estructura se controla desde server para evitar desync entre clientes.

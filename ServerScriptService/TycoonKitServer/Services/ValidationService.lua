@@ -69,6 +69,14 @@ local function requireButtonConfiguration(buttonModel: Model): (boolean, string?
 	return true, nil, price, prerequisite, gamepassId
 end
 
+function ValidationService.ReadButtonConfiguration(buttonModel: Instance): (boolean, string?, number?, string?, number?)
+	if not buttonModel:IsA("Model") then
+		return false, "ButtonMustBeModel"
+	end
+
+	return requireButtonConfiguration(buttonModel)
+end
+
 function ValidationService.FindStructureForButton(structuresFolder: Instance, buttonName: string): Model?
 	if not GameConfig.Rules.MatchByName then
 		return nil

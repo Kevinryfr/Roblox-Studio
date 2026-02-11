@@ -88,6 +88,65 @@ local function unlockStructure(tycoon: Instance, structureName: string): (boolea
 	return true, nil
 end
 
+
+local function setButtonAvailability(buttonModel: Instance, isAvailable: boolean)
+	if not buttonModel:IsA("Model") then
+		return
+	end
+
+	for _, desc in buttonModel:GetDescendants() do
+		if desc:IsA("BasePart") then
+			desc.Transparency = isAvailable and 0 or 1
+			desc.CanCollide = isAvailable
+		elseif desc:IsA("Decal") then
+			desc.Transparency = isAvailable and 0 or 1
+		elseif desc:IsA("SurfaceGui") or desc:IsA("BillboardGui") then
+			desc.Enabled = isAvailable
+		elseif desc:IsA("ClickDetector") then
+			desc.MaxActivationDistance = isAvailable and 18 or 0
+		end
+	end
+end
+
+local function refreshTycoonVisualState(player: Player, state: RuntimeState)
+	local tycoon = getOwnedTycoon(player)
+	state.tycoon = tycoon
+	if not tycoon then
+		return
+	end
+
+	local buttons = tycoon:FindFirstChild("Buttons")
+	local structures = tycoon:FindFirstChild("Structures")
+	if not buttons or not structures then
+		return
+	end
+
+	for _, structure in structures:GetChildren() do
+		if structure:IsA("Model") then
+			setStructureUnlocked(structure, false)
+		end
+	end
+
+	for _, buttonInstance in buttons:GetChildren() do
+		if not buttonInstance:IsA("Model") then
+			continue
+		end
+
+		local buttonName = buttonInstance.Name
+		if state.purchased[buttonName] then
+			setButtonAvailability(buttonInstance, false)
+			local structure = ValidationService.FindStructureForButton(structures, buttonName)
+			if structure then
+				setStructureUnlocked(structure, true)
+			end
+			continue
+		end
+
+		local ok, _, _, prerequisite = ValidationService.ReadButtonConfiguration(buttonInstance)
+		local available = ok and (prerequisite == nil or state.purchased[prerequisite])
+		setButtonAvailability(buttonInstance, available)
+	end
+end
 local function recomputeMoneyMultiplier(player: Player): number
 	local x2Id = GameConfig.Monetization.MoneyX2PassId
 	local x3Id = GameConfig.Monetization.MoneyX3PassId
@@ -239,6 +298,22 @@ local function deserializePurchased(raw: any): {[string]: boolean}
 	return result
 end
 
+local function readPurchasedModelsFromSave(loadedData: any): {[string]: boolean}
+	if typeof(loadedData) ~= "table" then
+		return {}
+	end
+
+	if loadedData.purchasedModels ~= nil then
+		return deserializePurchased(loadedData.purchasedModels)
+	end
+
+	if loadedData.purchased ~= nil then
+		return deserializePurchased(loadedData.purchased)
+	end
+
+	return {}
+end
+
 local function loadPlayerData(player: Player): any
 	if not GameConfig.Progression.SaveEnabled or GameConfig.Progression.StartFromZeroOnJoin then
 		return nil
@@ -263,9 +338,11 @@ local function savePlayerState(player: Player, state: RuntimeState, reason: stri
 		return
 	end
 
+	local serializedPurchased = serializePurchased(state.purchased)
 	local payload = {
 		cash = state.cash,
-		purchased = serializePurchased(state.purchased),
+		purchased = serializedPurchased, -- legacy key for backwards compatibility
+		purchasedModels = serializedPurchased,
 		timestamp = os.time(),
 		reason = reason,
 	}
@@ -298,10 +375,11 @@ local function buildInitialStateForPlayer(player: Player)
 		if typeof(loadedData.cash) == "number" then
 			state.cash = math.clamp(loadedData.cash, 0, GameConfig.Economy.MaxCash)
 		end
-		state.purchased = deserializePurchased(loadedData.purchased)
+		state.purchased = readPurchasedModelsFromSave(loadedData)
 	end
 
 	playerState[player.UserId] = state
+	refreshTycoonVisualState(player, state)
 	fireCashUpdated(player, state.cash)
 end
 
@@ -352,6 +430,7 @@ local function purchaseButton(player: Player, buttonName: string): (boolean, str
 	applyUpgraderBonusIfAny(state, tycoon, validation.buttonName :: string)
 	state.bonusesInitialized = true
 	state.structuresInitialized = true
+	refreshTycoonVisualState(player, state)
 	fireCashUpdated(player, state.cash)
 	debugPrint(player.Name, "purchased", validation.buttonName, "remainingCash", state.cash)
 
