@@ -105,7 +105,8 @@ Edita IDs en:
 ## 8) Persistencia (DataStore)
 - Si `GameConfig.Progression.SaveEnabled = true` y `StartFromZeroOnJoin = false`, el server guarda/carga:
   - `cash`
-  - lista de compras (`purchased`)
+  - lista de modelos comprados (`purchasedModels`)
+  - compatibilidad hacia atrás con `purchased` (legacy)
   - al reconectar re-aplica estructuras compradas y bonuses de upgrader
 - Guardado automático cada `AutosaveInterval` segundos y al salir/cerrar servidor.
 - Si `StartFromZeroOnJoin = true`, ignora datos guardados y empieza desde 0.

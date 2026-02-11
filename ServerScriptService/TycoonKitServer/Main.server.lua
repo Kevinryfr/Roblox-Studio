@@ -298,6 +298,22 @@ local function deserializePurchased(raw: any): {[string]: boolean}
 	return result
 end
 
+local function readPurchasedModelsFromSave(loadedData: any): {[string]: boolean}
+	if typeof(loadedData) ~= "table" then
+		return {}
+	end
+
+	if loadedData.purchasedModels ~= nil then
+		return deserializePurchased(loadedData.purchasedModels)
+	end
+
+	if loadedData.purchased ~= nil then
+		return deserializePurchased(loadedData.purchased)
+	end
+
+	return {}
+end
+
 local function loadPlayerData(player: Player): any
 	if not GameConfig.Progression.SaveEnabled or GameConfig.Progression.StartFromZeroOnJoin then
 		return nil
@@ -322,9 +338,11 @@ local function savePlayerState(player: Player, state: RuntimeState, reason: stri
 		return
 	end
 
+	local serializedPurchased = serializePurchased(state.purchased)
 	local payload = {
 		cash = state.cash,
-		purchased = serializePurchased(state.purchased),
+		purchased = serializedPurchased, -- legacy key for backwards compatibility
+		purchasedModels = serializedPurchased,
 		timestamp = os.time(),
 		reason = reason,
 	}
@@ -357,7 +375,7 @@ local function buildInitialStateForPlayer(player: Player)
 		if typeof(loadedData.cash) == "number" then
 			state.cash = math.clamp(loadedData.cash, 0, GameConfig.Economy.MaxCash)
 		end
-		state.purchased = deserializePurchased(loadedData.purchased)
+		state.purchased = readPurchasedModelsFromSave(loadedData)
 	end
 
 	playerState[player.UserId] = state
